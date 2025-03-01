@@ -831,26 +831,34 @@ Detained explanations:
 - The models that have the lowest value (for AIC, AICc, and BIC) would be the model which would fit the data the best. 
 - In this case (from the output), (very surprisingly) the linear-plateau (LP) model has the lowest values for all fit matrices i.e., AIC, AICc, and BIC. 
 - It does not always happen this way, maybe sometimes some of the rankings will change depending on which one of these three fit matrices among AIC, AICc, and BIC to look into. 
-- BIC is more conservative, AIC is more liberal. AICc is just a transformation of AIC which makes it a little bit conservative that AIC
+- BIC is more conservative, AIC is more liberal. AICc is just a transformation of AIC which makes it a little bit conservative that AIC.
 - But in this case, regardless of which fit matric among AIC, AICc, and BIC we use, all agree that lowest fit matric value is for linear-plateau (LP) model.
 - Based on this, if we were purely using statistics i.e., fit matrices AIC, AICc, and BIC to decide which model to use now to estimate our optimum, then we would go with linear-plateau (LP) model, and that's what we would use to carry out our further analysis.
+- If we run a differnt data set, and the ranking changes depending on the fit matric (i.e., AIC, AICc, and BIC), as long as we choose one particular fit matric and explain that fit matric, we should be fine. On a paper for example, we will mention that "the best model was selected based on the lowest AIC (or BIC) value", and reviewers will not have an issue with that as long as we choose one fit matric and explain which fit matic it was.
 
 
 # 8) Optimum on best model  
 Because our best model was the linear-plateau, let's find its seeding rate that optimized yield.  
 
 ```{r optimum SR}
-mod4_linp %>%
-  intervals(which = "fixed")
+mod4_linp %>% #mentioning the linear-plateau (LP) model
+  intervals(which = "fixed") #to see the error around the fixed part of the model which one of them is the break point to understand the error/variability around the point estimate
 
 ```
+
+
 Based on the linear-plateau model, the level of seeding rate to optimize corn grain yield in this study was **73.47** thousand seeds/ha.  
 
 Now let's predict what was the yield at that seeding rate.  
+
+
 ```{r yield at optimum SR}
-predict(mod4_linp,
+
+#We use "predict()" to know the yield level at the seeding rate [73.47 thousand seeds/ha]
+
+predict(mod4_linp, #specifying the model
         newdata = data.frame(sr_ksha = 73.48),
-        level = 0
+        level = 0 #to get an estimate only on the general level of the model (and to exclude random level of the model)
         )
 
 ```
