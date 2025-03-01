@@ -39,7 +39,7 @@ Because both the response variable (i.e., corn yield) and explanatory variable (
 Anytime we have this input x output **numerical** relationship, a few different patterns can emerge.
 
 ```{r input output relationships figure, echo=F}
-knitr::include_graphics("../data/ior.png")
+#knitr::include_graphics("../data/ior.png")
 ```
 
 Talk about each of these patterns.
@@ -116,7 +116,7 @@ ggplot(reg_dfw,
        aes(x = sr_ksha, 
            y = yield_mgha)) +
   geom_point() + #To plot the data points
-  geom_smooth() #To add trendline #We use geom_line() to connect the points with a line
+  geom_smooth() #To add trendline #We use geom_line() only to connect the points with a line
   
 
 ```
@@ -424,16 +424,27 @@ ggplot(reg_dfw,
 options(contrasts = c("contr.sum", "contr.poly"))
 
 # Model fitting
-mod3_quad 
+mod3_quad <- lmer(yield_mgha ~ (1|rep) + sr_ksha + I(sr_ksha^2), #We are using lmer() because we are treating blocks as random effect i.e., to run a mixed effects model #I() stands for identity, used to make sure that R understands it is a quadratic term #rep is categorical, and sr_ksha is numeric variable
+                  data = reg_dfw
+                  )
 
 # Summary
 summary(mod3_quad)
 ```
+Here, the "Estimate" for "sr_ksha" is 0.3089371, which is greater than 0. This tells us that there is a positive relationship between seeding rate and yield (based on the slope estimate of the model).
+
+The "Estimate" for the quadratic term "I(sr_ksha^2)" is -0.0016061 which is a negative value -- which indicates that there is a point of maximum in the (upward) quadratic curvature. If the "Estimate" for the quadratic term "I(sr_ksha^2)" was positive, it would mean that we have a point of minimum  in the (downward) quadratic curvature.
+
+## Differnce between regression and ANOVA:
+
+In regression, the explanatory variable(s) (= x) are numerical
+In ANOVA, the explanatory variable(s) (= x) are categorical
+
 
 ## b) Model Assumptions
 ```{r mod3 augmenting}
 # Augmenting and adding pearson standardized residuals
-mod3_quad_aug <- augment(mod3_quad) %>%
+mod3_quad_aug <- augment(mod3_quad) %>% #"augment()" function allows to collect all the residual information (along with our original dataframe)
   mutate(.stdresid = resid(mod3_quad, 
                            type = "pearson", 
                            scaled = T))
@@ -447,11 +458,19 @@ mod3_quad_aug
 ```{r mod3 Standardized Residuals vs. Fitted}
 ggplot(mod3_quad_aug, 
        aes(x = .fitted, 
-           y = .stdresid))+
+           y = .stdresid)) + #x = fitted, y = residual #fitted by residual plot
   geom_hline(yintercept = 0, color = "red")+
   geom_point(size = 3, alpha = .7)+
   geom_smooth(method = "lm")
 ```
+Very important note: 
+Question: Why do we check assumptions of residuals, and not on the raw data?
+Answer: The reason we chech assumptions on residuals in because residuals change based on the model, whereas raw data does not change. When we change the model, we also change the residuals. That's why we chech assumptions on residuals. The residual in the interaction between our data and model. So, if we change the model, the residuals are also going to change. 
+
+Dr. Bastos said: make the model fit your data, not the data fit your model (first).
+
+
+
 Residuals are looking better now, no pattern.  
 
 Linear thoughts:
@@ -460,7 +479,7 @@ Model assumptions are based on residuals, not raw data!
 
 Notice here that we used the **same data** as before, just changed the model, and that completely changed the residuals (for better, in this case)!
 
-Remember: residual = distance of raw data from model fit. If model changes, residual changes, even when same underlying raw data is used.
+Remember: residual = distance of raw data from model fit [Residual, e = observed data (y_i) - predicted data (y_hat)]. If model changes, residual changes, even when same underlying raw data is used.
 
 
 ```{r mod3 Quantile-Quantile}
@@ -560,12 +579,13 @@ ggplot(reg_dfw,
 
 Now, which one fits the data best?
 Which one should we chose for finding the optimum, or predicting new data?  
+Answer: Quadratic model
 
 In our data set,   
 - We know there is a yield response to SR (so intercept-only model is not a good candidate),  
 - We know we have achieved a maximum point (so linear is not a good candidate)  
-- We have already fit the quadratic model.  
-- We can fit the linear-plateau (LP) model.
+- We have already fit the quadratic model. (i.e., there is a point of maximum)  
+- We can fit the linear-plateau (LP) model. (Linear-plateau (LP) is the first non-linear model that we are gonna run in this class)
 
 So, let's fit a LP model and then compare it to the quadratic.  
 After that, we can choose the model that best fit our data and use it to extract the optimum seeding rate.
@@ -577,8 +597,20 @@ After that, we can choose the model that best fit our data and use it to extract
 # Changing to sum-to-zero contrast
 options(contrasts = c("contr.sum", "contr.poly"))
 
+reg_dfw
 # Model fitting
-mod4_linp 
+
+mod4_linp <- nlme(yield_mgha ~ SSlinp(sr_ksha, a, b, xs),
+                  data = reg_dfw,
+                  random = list(rep = pdDiag(a + b + xs ~ 1)),
+                  fixed = list(a ~ 1,
+                               b ~ 1,
+                               xs ~ 1),
+                  start = c(a = 0, 
+                            b = 0.3,
+                            xs = 100))
+
+#nlme() - stands for "non linear mixed effect" #a, b, xs are non-linear parameters: a = intercept, b = slope, xs = break point of the plateau
 
 # Summary
 summary(mod4_linp)
@@ -720,22 +752,30 @@ ggplot(reg_dfw, aes(x = sr_ksha, y = yield_mgha))+
 ```
 ## Table comparison  
 ```{r}
-
+IC_tab(mode1_int,
+       mod2_lin,
+       mod3_quad,
+       mod4_linp
+       )
 ```
-Based on the above, model 4 (linear-plateau) had the lowest AIC and thus should be used to find the optimum level of seeding rate.  
+Based on the above, model 4 (linear-plateau) had the lowest AIC and thus should be used to find the optimum level of seeding rate. The lower the AIC, the better. 
 
 # 8) Optimum on best model  
 Because our best model was the linear-plateau, let's find its seeding rate that optimized yield.  
 
 ```{r optimum SR}
-
+mod4_linp %>%
+  intervals(which = "fixed")
 
 ```
 Based on the linear-plateau model, the level of seeding rate to optimize corn grain yield in this study was **73.47** thousand seeds/ha.  
 
 Now let's predict what was the yield at that seeding rate.  
 ```{r yield at optimum SR}
-
+predict(mod4_linp,
+        newdata = data.frame(sr_ksha = 73.48),
+        level = 0
+        )
 
 ```
 At the optimum seeding rate of **73.47** thousand seeds/ha, corn grain yield was **13.45** Mg/ha.
