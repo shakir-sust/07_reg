@@ -225,7 +225,7 @@ First, let's create an data set with all levels of seeding rate we want to get a
 ```{r nd}
 nd <- data.frame(sr_ksha = seq(40, 120, 1)) #nd stands for new data #40 is the lowest level, 120 is the hightest level, and we want the increment to happen at a step of 1
 
-nd
+nd #To compare all the fit lines for the 4 models, we are creating "nd" in the very beginning and will keep overwriting on it so that we can have a single object that have all the model predicted values and the Confidence Levels for each models. 
 ```
 
 ```{r mod1 better final plot}
@@ -433,7 +433,7 @@ summary(mod3_quad)
 ```
 Here, the "Estimate" for "sr_ksha" is 0.3089371, which is greater than 0. This tells us that there is a positive relationship between seeding rate and yield (based on the slope estimate of the model).
 
-The "Estimate" for the quadratic term "I(sr_ksha^2)" is -0.0016061 which is a negative value -- which indicates that there is a point of maximum in the (upward) quadratic curvature. If the "Estimate" for the quadratic term "I(sr_ksha^2)" was positive, it would mean that we have a point of minimum  in the (downward) quadratic curvature.
+The "Estimate" for the quadratic term "I(sr_ksha^2)" is -0.0016061 which is a negative value -- which indicates that there is a point of maximum in the (upward) quadratic curvature. Oppositely, if the "Estimate" for the quadratic term "I(sr_ksha^2)" were positive, it would mean that we have a point of minimum  in the (downward) quadratic curvature.
 
 ## Differnce between regression and ANOVA:
 
@@ -590,6 +590,19 @@ In our data set,
 So, let's fit a LP model and then compare it to the quadratic.  
 After that, we can choose the model that best fit our data and use it to extract the optimum seeding rate.
 
+**Very important note:**
+
+Regardless of the curvature in a quadratic model, a quadratic model is also a linear model [just like the "intercept" model and "linear (= intercept + slope)" model].
+
+What makes a model linear or non-linear is how the model parameters are estimated. If the model parameter(s) has non-linearity in the model, only the we can say that it is a non-linear model.
+
+The linear-plateau (LP) is gonna be the first non-linear model we are gonna see here because it has non-linearities in the parameters of the model itself, and not in the way the model looks like (in terms of curvature) once it has been fit to the data.
+
+The "intercept" model and "linear (= intercept + slope)" model are linear not because how the curvature of the models look (like linear), but because how the parameters of the models were estimated (i.e., the model parameters did not have non-linearity) i.e., the model parameters were estimated in a linear fashion.
+
+Liinear-plateau (LP) is gonna have a break point i.e., the curve increases up to a certain point, then it breaks at the breaking point, and then there is a plateau after that. That's why it is called linear-plateau (LP).
+
+ 
 # 6) Linear-plateau regression  
 ## a) Model
 
@@ -597,18 +610,21 @@ After that, we can choose the model that best fit our data and use it to extract
 # Changing to sum-to-zero contrast
 options(contrasts = c("contr.sum", "contr.poly"))
 
-reg_dfw
-# Model fitting
+reg_dfw #to see variable names which we will use to fit the model
 
-mod4_linp <- nlme(yield_mgha ~ SSlinp(sr_ksha, a, b, xs),
+# Model fitting
+#To fit non-linear model, we use the function "nlme()" which stands for non-linear mixed-effect model
+mod4_linp <- nlme(yield_mgha ~ SSlinp(sr_ksha, a, b, xs), #SSlinp() [from package "nlraa"] non-linear function is used to fit the points of the linear-plateau model: a = intercept, b = slope, xs = break point for the plateau on x-axis #a, b, xs are not columns in our data set, these are parameters that we are asking for this SSlinp() function to iterate over, and estimate for us
                   data = reg_dfw,
-                  random = list(rep = pdDiag(a + b + xs ~ 1)),
+                  random = list(rep = pdDiag(a + b + xs ~ 1)), #this function is creating a diagonal matrix, saying that for rep, I want the effect of the parameters of the model is calculating for us which is a (the intercept), b (the slope), and xs (the break point) to be random in respect to rep
                   fixed = list(a ~ 1,
                                b ~ 1,
-                               xs ~ 1),
+                               xs ~ 1), #this is to say that the fixed part of the model, we want an estimate for the a (the intercept), b (the slope), and xs (the break point) 
                   start = c(a = 0, 
                             b = 0.3,
-                            xs = 100))
+                            xs = 100)) #to provide some starting values #By visual inspection, how to find and specify the starting values: in the quadratic model, we see that the "Estimate" of the intercept is -0.9759850 (i.e., -1), so 0 is not a bad starting point; the "Estimate" of the slope for the quadratic model is 0.3089371, so that's why we take the starting point of the slope (i.e., b) as 0.3; for the break point, we see that the point of maximum is around 90 or 100 along the x-axis in the quadratic model curvature #After trying these values, if it does not work (i.e., if we try them, and the model says it did not converge), we can play around with different values and try to get the model to converge
+
+#After running the model, we did not get any error in this case. If for some reason, if the model did not converge, we would get a message like "convergence was not achieved", so we would know that we have to change our starting values
 
 #nlme() - stands for "non linear mixed effect" #a, b, xs are non-linear parameters: a = intercept, b = slope, xs = break point of the plateau
 
@@ -616,12 +632,18 @@ mod4_linp <- nlme(yield_mgha ~ SSlinp(sr_ksha, a, b, xs),
 summary(mod4_linp)
 ```
 
+In the first "data.frame" output panel, the AIC, BIC, and logLik (log likelihood) are some model fit matrix.
+
+In the second "data.frame" output panel, the "value" column is the actual estimate of what the model found for a, b, and xs (non-linear parameters: a = intercept = 3.45726, b = slope = 0.13603, xs = break point of the plateau = 73.47709). 
+
+Note: These estimates (a = intercept = 3.45726, b = slope = 0.13603, xs = break point of the plateau = 73.47709) are basically iterations that the model ran for us to look for the values that we got i.e., they are going through a iterative process because the model is trying to optimize all three estimate at the same time. That's why we have to give starting values, and in this case we use the "SSlinp()" function to do that for us. 
+
 ## b) Model Assumptions
 ```{r mod4 augmenting}
 # Augmenting and adding pearson standardized residuals
 mod4_linp_aug <- augment(mod4_linp,
-                         data = reg_dfw) %>%
-  mutate(.stdresid = resid(mod4_linp, 
+                         data = reg_dfw) %>% #We use "augment()" function to get all the residual information alongside our original data set
+  mutate(.stdresid = resid(mod4_linp, #We use the "standardized" residual mostly for outlier detection
                            type = "pearson", 
                            scaled = T))
 
@@ -639,9 +661,12 @@ ggplot(mod4_linp_aug,
   geom_point(size = 3, alpha = .7)+
   geom_smooth(method = "lm")
 ```
+The fitted vs. residual plot looks pretty similar to the quadratic model, which means that this linear-plateau (LP) model is also a good candidate.
+
 Looking good.  
 
 ```{r mod4 Quantile-Quantile}
+#Very important note: if we run any of the previous code chunks more than once, we will get the following error: "Error: object 'mod4_linp_randeff' not found". This happens because the residual column gets renamed incrementally (e.g., mod4_linp_randeff1, mod4_linp_randeff2) every time we rerun the code chunks for an extra time. Hence, if you get this error "Error: object 'mod4_linp_randeff' not found", clean all variables from the environment by clicking on the broom button, the rerun all previous code chunks by pressin the downward triangle ("Run All Chunks Above" button) on the current code chunk, then press the play button ("Run Current Chunk" button), and this time the code will run just fine.
 ggplot(mod4_linp_aug, 
        aes(sample = .stdresid))+
   stat_qq()+
@@ -649,17 +674,23 @@ ggplot(mod4_linp_aug,
 ```
 Looking good.  
 
+## Very important note: 
+
+if we run any of the previous code chunks more than once, we will get the following error: "Error: object 'mod4_linp_randeff' not found". This happens because the residual column gets renamed incrementally (e.g., mod4_linp_randeff1, mod4_linp_randeff2) every time we rerun the code chunks for an extra time. Hence, if you get this error "Error: object 'mod4_linp_randeff' not found", clean all variables from the environment by clicking on the broom button, the rerun all previous code chunks by pressin the downward triangle ("Run All Chunks Above" button) on the current code chunk, then press the play button ("Run Current Chunk" button), and this time the code will run just fine.
+
 ### Random effects are iid ~ N(0,var1)
 
 On this plot, looking for normality.
 
 ```{r mod4 QQ plot for Rep random effect}
-mod4_linp_randeff 
+mod4_linp_randeff <- ranef(mod4_linp) %>% #The output of this current chunk is an array (not a data frame); So, we need to transform it into a data frame by using "as.data.frame()" function so that we can plot the data frame in ggplot() [because "ggplot()" only takes data frames to plot the data]
+  as.data.frame()
 
 ggplot(mod4_linp_randeff, 
        aes(sample = estimate))+
   stat_qq()+
-  stat_qq_line() 
+  stat_qq_line() +
+  facet_wrap(.~term) #"facet_wrap()" to plot the 3 terms i.e., a, b, xs in 3 separate plots
 
 ```
 b and xs random estimates are so small that seem to be all zero.  
@@ -743,22 +774,67 @@ ggplot(reg_dfw,
 ```
 
 # 7) Model comparison  
-## a) Visual comparison
-```{r comparison plot}
-ggplot(reg_dfw, aes(x = sr_ksha, y = yield_mgha))+
-  geom_point(size = 4, alpha = .6)
+## a) Visual comparison  
 
+```{r comparison plot}
+
+nd #To bring and show all the fit lines for the 4 models, we created nd in the very beginning and kept overwriting on it just so we can have a single object that have all the model predicted values and the Confidence Levels for each models. #To see the column names that we will use to plot
+
+ggplot(reg_dfw, aes(x = sr_ksha, y = yield_mgha))+
+  geom_point(size = 4, alpha = .6) +
+  geom_line(data = nd,
+            aes(y = mod1_yield_mgha, x = sr_ksha),
+            color = "forestgreen",
+            linewidth = 1.5) + #Adding line fit for the first model
+  geom_line(data = nd,
+            aes(y = mod2_yield_mgha, x = sr_ksha),
+            color = "blue",
+            linewidth = 1.5) + #Adding line fit for the second model
+  geom_line(data = nd,
+            aes(y = mod3_yield_mgha, x = sr_ksha),
+            color = "purple",
+            linewidth = 1.5) + #Adding line fit for the third model
+   geom_line(data = nd,
+            aes(y = mod4_yield_mgha, x = sr_ksha),
+            color = "orange",
+            linewidth = 1.5) #Adding line fit for the fourth model
 
 ```
+
+
 ## Table comparison  
+
 ```{r}
-IC_tab(mode1_int,
+IC_tab(mod1_int,
        mod2_lin,
        mod3_quad,
        mod4_linp
        )
+
+#IC_tab() function comes from "nlraa" package
+
 ```
-Based on the above, model 4 (linear-plateau) had the lowest AIC and thus should be used to find the optimum level of seeding rate. The lower the AIC, the better. 
+Dr. Bastos: Based on the above, model 4 (linear-plateau) had the lowest AIC and thus should be used to find the optimum level of seeding rate. The lower the AIC, the better. 
+
+Detained explanations:
+
+- AIC and BIC (Bayesian Information Criterion) are different types of information criterion. 
+- If we have the same data and we are just changing the model,AIC can help us which model has the best fit.  (we could have used R2 and/or MSE).
+- AIC, AICc, and BIC are all information criterion that take into account how many variables you have in the model. 
+- For R2, the more variable we add in the model, the R2 in going to increase even though some of those variables explain very little information about our response variable y. 
+- However, AIC, AICc, and BIC these information criterion, they take a penalty for each argument we add in the model. 
+- So, if we add another explanatory variable in the model, our fit matrices will only improve if the amount of information (or, the amount of variance) that the extra variable is explaining is higher than the degree of freedom (df) it is consuming.
+- So, these AIC, AICc, and BIC information criterion adds a penalty -- meaning that if we add an explanatory variable that explains yield very little or may be this explanatory variable has no relationship with yield, our fit matrices will actually decrease, because we are consuming degrees of freedom and not explaining much (variance/variation) by adding this variable.
+- The concept here is our fit matrices (AIC, AICc, and BIC) only improve  if the amount of variance that the extra parameter that was included in the model is actually worth it.
+- If we add an explanatory variable that did not explain much of variance, then our fit matrices (AIC, AICc, and BIC) decrease/deteriorate.
+- The lower are the fit matrices (AIC, AICc, and BIC), the better. 
+- The models that have the lowest value (for AIC, AICc, and BIC) would be the model which would fit the data the best. 
+- In this case (from the output), (very surprisingly) the linear-plateau (LP) model has the lowest values for all fit matrices i.e., AIC, AICc, and BIC. 
+- It does not always happen this way, maybe sometimes some of the rankings will change depending on which one of these three fit matrices among AIC, AICc, and BIC to look into. 
+- BIC is more conservative, AIC is more liberal. AICc is just a transformation of AIC which makes it a little bit conservative that AIC
+- But in this case, regardless of which fit matric among AIC, AICc, and BIC we use, all agree that lowest fit matric value is for linear-plateau (LP) model.
+- Based on this, if we were purely using statistics i.e., fit matrices AIC, AICc, and BIC to decide which model to use now to estimate our optimum, then we would go with linear-plateau (LP) model, and that's what we would use to carry out our further analysis.
+
 
 # 8) Optimum on best model  
 Because our best model was the linear-plateau, let's find its seeding rate that optimized yield.  
