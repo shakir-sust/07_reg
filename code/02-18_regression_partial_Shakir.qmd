@@ -145,10 +145,10 @@ summary(mod1_int)
 ```{r mod1 augmenting}
 # Augmenting and adding perason standardized residuals
 mod1_int_aug <- augment(mod1_int) %>%
-  mutate(.stdresid = resid(mod1_int, 
+  mutate(.stdresid = resid(mod1_int, #we are using 'resid()' instead of 'rstud()' for regression 
                            type = "pearson", #to get pearson residual
                            scaled = T)) %>% #to get normalized i.e., scaled residual to detect outliers
-  left_join(reg_dfw) #to bring back the seeding rate (x) into the model
+  left_join(reg_dfw) #to bring back the seeding rate (x) column into the data frame based on known/common columns
 
 
 mod1_int_aug
